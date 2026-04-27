@@ -1,146 +1,37 @@
-# 🏥 mediStore – Full Stack Medicine E-commerce Platform
-
-mediStore is a **full‑stack medicine e‑commerce web application** where users can browse medicines, place orders, and manage their profiles, while admins can manage products, categories, and orders from a secure dashboard.
-
-This project is built using **modern frontend and backend technologies**, focusing on clean UI, scalability, and real‑world features.
-
----
-
-## 🚀 Live Links
-
-* **Frontend Live:** [https://medistore-lyart.vercel.app/](https://medistore-lyart.vercel.app/)
-* **Backend Live:** [https://medi-store-server-seven.vercel.app/](https://medi-store-server-seven.vercel.app/)
-* **Demo Video:** [https://drive.google.com/file/d/1CY5-Chgr2qS3T5OiLmiYHF7JIndYJeQJa/view?usp=sharing](https://drive.google.com/file/d/1CY5-Chgr2qS3T5OiLmiYHF7JIndYJeQJa/view?usp=sharing)
-
----
-
-## 📂 GitHub Repositories
-
-* **Frontend Repository:** [https://github.com/tawhidulislam1/mediStore_client](https://github.com/tawhidulislam1/mediStore_client)
-* **Backend Repository:** [https://github.com/tawhidulislam1/mediStore_server](https://github.com/tawhidulislam1/mediStore_server)
-
----
-
-## 🔐 Admin Credentials (Demo)
-
-> Use these credentials to access the admin dashboard
-
-* **Email:** [admin@gmail.com](mailto:admin@gmail.com)
-* **Password:** admin1234
-
----
-
-## ✨ Features
-
-### 👤 User Features
-
-* User authentication (Login / Register)
-* Browse medicines by category
-* View medicine details
-* Add medicines to cart
-* Place orders
-* View order history
-* Responsive design for all devices
-
-### 🛠️ Admin Features
-
-* Secure admin dashboard
-* Create, update, and delete medicines
-* Manage categories
-* Manage medicine stock
-* View and manage orders
-
----
-
-## 🖥️ Frontend Tech Stack
-
-* **Next.js (App Router)**
-* **React**
-* **Tailwind CSS**
-* **Radix UI / shadcn UI**
-* **Zod (Validation)**
-* **Lucide Icons**
-* **pnpm**
-
----
-
-## ⚙️ Backend Tech Stack
-
-* **Node.js (ESM)**
-* **Express.js v5**
-* **TypeScript**
-* **PostgreSQL**
-* **Prisma ORM**
-* **Better Auth (Authentication & Authorization)**
-* **CORS & Dotenv**
-* **Tsup (Production Build)**
-* **TSX (Development Runtime)**
-* **pnpm**
-* **Vercel Deployment**
-
----
-
-## 📦 Installation & Setup
-
-### 🔹 Clone Repositories
-
-```bash
-git clone https://github.com/tawhidulislam1/mediStore_client
-git clone https://github.com/tawhidulislam1/mediStore_server
-```
-
----
-
-### 🔹 Frontend Setup
-
-```bash
-cd mediStore_client
-pnpm install
-pnpm run dev
-```
-
-Create a `.env.local` file and add required environment variables.
-
----
-
-### 🔹 Backend Setup
-
-```bash
-cd mediStore_server
-pnpm install
-pnpm run dev
-```
-
-Create a `.env` file and configure:
-
-* Database URL
-* JWT / Auth secrets
-* Port
-
----
-
-## 🎯 Project Purpose
-
-This project was built to:
-
-* Practice **real‑world full‑stack development**
-* Implement **role‑based authentication**
-* Work with **modern Next.js architecture**
-* Build a **scalable e‑commerce system**
-
----
-
-## 🧑‍💻 Author
-
-**Tawhidul Islam**
-Frontend Developer | Web Designer
-
-* GitHub: [https://github.com/tawhidulislam1](https://github.com/tawhidulislam1)
-
----
-
-## ⭐ Feedback
-
-If you like this project, feel free to ⭐ the repository and share your feedback!
-
-Happy Coding 🚀
+{
+  "name": "mediStore_Server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "npx tsx watch src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:admin": "npx tsx src/script/seedAdmin.ts",
+    "build": "prisma generate && tsup src/index.ts --format esm --platform node --target node20 --outDir api --external pg-native",
+    "postinstall": "prisma generate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.26.2",
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/node": "^25.0.10",
+    "@types/pg": "^8.16.0",
+    "prisma": "^7.3.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.3.0",
+    "@types/express": "^5.0.6",
+    "better-auth": "^1.4.17",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "pg": "^8.17.2"
+  }
+}
