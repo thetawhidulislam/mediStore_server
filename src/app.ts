@@ -11,15 +11,13 @@ import { CartItemRouter } from "./modules/cartItem/cartItem.route";
 import { orderRouter } from "./modules/order/order.route";
 import errorHandler from "./middlewere/globalErrorHandler";
 import { UserRouter } from "./modules/user/user.route";
+import { PaymentController } from "./modules/payment/payment.controller";
 const allowedOrigins = [
-  process.env.APP_URL || "http://localhost:4000",
-  process.env.PROD_APP_URL, // Production frontend URL
-  "http://localhost:3000",
+  process.env.APP_URL || "http://localhost:3000",
+  process.env.FRONTEND_URL, // Production frontend URL
   "http://localhost:4000",
   "http://localhost:5000",
 ].filter(Boolean); // Remove undefined values
-
-
 
 const app: Application = express();
 
@@ -48,23 +46,12 @@ app.use(
   }),
 );
 
-
-
-
-
-
-
-
-// app.use(
-//   cors({
-//     origin: process.env.APP_URL,
-//     credentials: true,
-//   }),
-// );
-
-
-
 app.use(express.json());
+app.post(
+  "/webhook",
+  express.raw({ type: "application/json" }),
+  PaymentController.handleStripeWebhookEvent,
+);
 app.all("/api/auth/*splat", toNodeHandler(auth));
 app.use("/api/user", UserRouter);
 app.use("/admin/category", CategoryRouter);
@@ -78,7 +65,5 @@ app.get("/", (req, res) => {
 });
 app.use(notFound);
 app.use(errorHandler);
-
-
 
 export default app;

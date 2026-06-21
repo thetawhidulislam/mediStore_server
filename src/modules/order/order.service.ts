@@ -1,8 +1,22 @@
-import { Orders, OrderStatus } from "../../../generated/prisma/client";
+import {
+  Orders,
+  OrderStatus,
+  PaymentStatus,
+} from "../../../generated/prisma/client";
+
+import stripe from "../../config/stripe.config";
 import { prisma } from "../../lib/prisma";
 import { USERROLE } from "../../middlewere/auth";
+import { v7 as uuidv7 } from "uuid";
+
+/**
+ * CREATE ORDER (COD + STRIPE)
+ */
 const createOrder = async (
-  data: Omit<Orders, "id" | "createdAt" | "updatedAt">,
+  data: Omit<
+    Orders,
+    "id" | "createdAt" | "updatedAt" | "paymentStatus" | "orderDate" | "payment"
+  >,
   userId: string,
 ) => {
   try {
@@ -10,53 +24,118 @@ const createOrder = async (
       where: { customerId: userId },
       include: { medicines: true },
     });
-    if (cartItems.length === 0) {
+
+    if (!cartItems.length) {
       throw new Error("Cart is empty");
     }
+
     const totalPrice = cartItems.reduce(
       (sum, item) => sum + item.quantity * item.medicines.price,
       0,
     );
-    // ✅ ONLY THIS PART ADDED (quantity decrement)
-    for (const item of cartItems) {
-      await prisma.medicines.update({
-        where: { id: item.medicineId },
+
+    const paymentGateway = data.paymentGateway ?? "COD";
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. CREATE ORDER
+      const order = await tx.orders.create({
         data: {
-          stock: {
-            decrement: item.quantity,
+          customerId: userId,
+          totalPrice,
+          shippingAddress: data.shippingAddress,
+          paymentGateway,
+          paymentStatus: PaymentStatus.UNPAID,
+
+          orderItems: {
+            create: cartItems.map((item) => ({
+              medicineId: item.medicineId,
+              quantity: item.quantity,
+              price: item.medicines.price,
+            })),
           },
         },
-      });
-    }
-
-    const order = await prisma.orders.create({
-      data: {
-        customerId: userId,
-        totalPrice,
-        shippingAddress: data.shippingAddress,
-        paymentGateway: data.paymentGateway,
-        orderItems: {
-          create: cartItems.map((item) => ({
-            medicineId: item.medicineId,
-            quantity: item.quantity,
-            price: item.medicines.price,
-          })),
+        include: {
+          orderItems: {
+            include: {
+              medicines: true,
+            },
+          },
+          customer: true,
         },
-      },
-      include: {
-        orderItems: true,
-      },
+      });
+
+      // 2. DECREMENT STOCK
+      for (const item of cartItems) {
+        await tx.medicines.update({
+          where: { id: item.medicineId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+
+      // 3. CLEAR CART
+      await tx.cartItem.deleteMany({
+        where: { customerId: userId },
+      });
+
+      let paymentUrl: string | null = null;
+
+      // 4. STRIPE PAYMENT ONLY IF CARD
+      if (paymentGateway === "STRIPE") {
+        const payment = await tx.payment.create({
+          data: {
+            orderId: order.id,
+            amount: order.totalPrice,
+            transactionId: uuidv7(),
+            status: PaymentStatus.UNPAID,
+          },
+        });
+
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ["card"],
+          mode: "payment",
+          line_items: [
+            {
+              price_data: {
+                currency: "usd",
+                product_data: {
+                  name: `Medicine Order #${order.id}`,
+                },
+                unit_amount: Math.round(order.totalPrice * 100),
+              },
+              quantity: 1,
+            },
+          ],
+          metadata: {
+            orderId: order.id,
+            paymentId: payment.id,
+          },
+          success_url: `${process.env.FRONTEND_URL}/payment/success?orderId=${order.id}`,
+          cancel_url: `${process.env.FRONTEND_URL}/payment/cancel?orderId=${order.id}`,
+        });
+
+        paymentUrl = session.url;
+      }
+
+      return {
+        order,
+        paymentUrl,
+      };
     });
-    await prisma.cartItem.deleteMany({ where: { customerId: userId } });
-    return order;
-    // const newOrder = await prisma.orders.create({ data });
-    // await prisma.cart.deleteMany({ where: { id: data.cartId } });
-    // return newOrder;
+
+    return result;
   } catch (err) {
-    console.error("Checkout failed:", err);
+    console.error("Order creation failed:", err);
     throw new Error("Could not complete order");
   }
 };
+
+/**
+ * GET ALL ORDERS
+ */
 const getAllOrders = async (user: { id: string; role: USERROLE }) => {
   let whereCondition: any = {};
 
@@ -76,48 +155,8 @@ const getAllOrders = async (user: { id: string; role: USERROLE }) => {
     };
   }
 
-  const orders = await prisma.orders.findMany({
+  return await prisma.orders.findMany({
     where: whereCondition,
-    include: {
-      customer: {
-        select: {
-          name: true,
-          image: true,
-          email: true,
-          role: true,
-          phone: true,
-        },
-      },
-
-      orderItems: {
-        where:
-          user.role === USERROLE.SELLER
-            ? { medicines: { sellerId: user.id } }
-            : {},
-        include: {
-          medicines: {
-            select: {
-              id: true,
-              name: true,
-              price: true,
-              manufacturer: true,
-              seller: {
-                select: { name: true, categories: { select: { name: true } } },
-              },
-            },
-          },
-        },
-      },
-    },
-
-    orderBy: { orderDate: "desc" },
-  });
-
-  return orders;
-};
-const getOrderById = async (orderId: string, user: any) => {
-  const order = await prisma.orders.findUnique({
-    where: { id: orderId },
     include: {
       customer: {
         select: {
@@ -138,7 +177,6 @@ const getOrderById = async (orderId: string, user: any) => {
               manufacturer: true,
               seller: {
                 select: {
-                  id: true,
                   name: true,
                   categories: {
                     select: { name: true },
@@ -150,17 +188,46 @@ const getOrderById = async (orderId: string, user: any) => {
         },
       },
     },
+    orderBy: {
+      orderDate: "desc",
+    },
+  });
+};
+
+/**
+ * GET ORDER BY ID
+ */
+const getOrderById = async (orderId: string, user: any) => {
+  const order = await prisma.orders.findUnique({
+    where: { id: orderId },
+    include: {
+      customer: true,
+      orderItems: {
+        include: {
+          medicines: {
+            include: {
+              seller: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!order) throw new Error("Order not found");
 
+  if (user.role === USERROLE.CUSTOMER && order.customerId !== user.id) {
+    throw new Error("Not authorized");
+  }
+
   if (user.role === USERROLE.SELLER) {
     const sellerItems = order.orderItems.filter(
-      (item) => item.medicines.seller.id === user.id,
+      (item) => item.medicines.sellerId === user.id,
     );
 
-    if (sellerItems.length === 0)
+    if (!sellerItems.length) {
       throw new Error("Not authorized to view this order");
+    }
 
     const sellerSubtotal = sellerItems.reduce(
       (sum, item) => sum + item.quantity * item.price,
@@ -169,7 +236,7 @@ const getOrderById = async (orderId: string, user: any) => {
 
     return {
       orderId: order.id,
-      status: order.status,
+      status: order.paymentStatus,
       orderDate: order.orderDate,
       totalPrice: order.totalPrice,
       customer: order.customer,
@@ -178,56 +245,46 @@ const getOrderById = async (orderId: string, user: any) => {
     };
   }
 
-  if (user.role === USERROLE.CUSTOMER && order.customerId !== user.id) {
-    throw new Error("You are not authorized to view this order");
-  }
-
   return order;
 };
 
+/**
+ * UPDATE ORDER STATUS
+ * (COD support + seller/admin control)
+ */
 const updateOrderStatus = async (
   orderId: string,
   userId: string,
   userRoles: string,
   newStatus: OrderStatus,
 ) => {
-  // Fetch the order once for validation
   const order = await prisma.orders.findUnique({
     where: { id: orderId },
   });
 
-  if (!order) {
-    throw new Error("Order not found");
-  }
+  if (!order) throw new Error("Order not found");
 
-  // --------------------------
-  // CUSTOMER LOGIC
-  // --------------------------
+  // CUSTOMER (only cancel)
   if (userRoles.includes(USERROLE.CUSTOMER)) {
-    // Customers can only CANCEL
     if (newStatus !== OrderStatus.CANCEL) {
-      throw new Error("Customers can only cancel orders");
+      throw new Error("Customer can only cancel order");
     }
 
-    // Check if this order belongs to the customer
     if (order.customerId !== userId) {
-      throw new Error("You cannot update this order");
+      throw new Error("Not authorized");
     }
 
     return prisma.orders.update({
       where: { id: orderId },
       data: {
-        status: OrderStatus.CANCEL,
+        paymentStatus: PaymentStatus.UNPAID,
         updatedAt: new Date(),
       },
     });
   }
 
-  // --------------------------
-  // SELLER LOGIC
-  // --------------------------
+  // SELLER (update status)
   if (userRoles.includes(USERROLE.SELLER)) {
-    // Check if the seller has items in this order
     const sellerItems = await prisma.orderItem.findMany({
       where: {
         orderId,
@@ -237,24 +294,21 @@ const updateOrderStatus = async (
       },
     });
 
-    if (sellerItems.length === 0) {
-      throw new Error("You are not authorized to update this order");
+    if (!sellerItems.length) {
+      throw new Error("Not authorized");
     }
 
-    // Seller can update status
     return prisma.orders.update({
       where: { id: orderId },
       data: {
-        status: newStatus,
+        paymentStatus: PaymentStatus.UNPAID,
         updatedAt: new Date(),
       },
     });
   }
 
-  throw new Error("You are not authorized to update orders");
+  throw new Error("Not authorized");
 };
-
-
 
 export const orderService = {
   createOrder,

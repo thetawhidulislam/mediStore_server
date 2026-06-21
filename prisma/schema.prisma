@@ -49,16 +49,17 @@ model Category {
 }
 
 model Orders {
-  id              String      @id @default(uuid())
-  customer        User        @relation(fields: [customerId], references: [id])
+  id              String        @id @default(uuid())
+  customer        User          @relation(fields: [customerId], references: [id])
   customerId      String
   totalPrice      Float
-  status          OrderStatus @default(PENDING)
+  paymentStatus   PaymentStatus @default(UNPAID)
   paymentGateway  String?
   shippingAddress String?
   orderItems      OrderItem[]
-  orderDate       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  orderDate       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  payment         Payment?
 
   @@index([customerId])
   @@map("orders")
@@ -70,10 +71,27 @@ model OrderItem {
   order      Orders    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   medicineId String
   medicines  Medicines @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  quantity   Int
+  price      Float
+  createdAt  DateTime  @default(now())
+}
 
-  quantity  Int
-  price     Float
-  createdAt DateTime @default(now())
+model Payment {
+  id                 String        @id @default(uuid(7))
+  amount             Float
+  transactionId      String        @unique @db.Uuid()
+  stripeEventId      String?       @unique
+  status             PaymentStatus @default(UNPAID)
+  paymentGatewayData Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  orderId String @unique
+  order   Orders @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([transactionId])
+  @@map("payments")
 }
 
 model Reviews {
@@ -202,4 +220,9 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
 }
