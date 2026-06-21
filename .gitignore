@@ -4,3 +4,4 @@ build
 .env
 /generated/prisma
 .vercel
+prisma.zip
