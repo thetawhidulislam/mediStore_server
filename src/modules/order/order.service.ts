@@ -64,7 +64,6 @@ const createOrder = async (
         },
       });
 
-      // 2. DECREMENT STOCK
       for (const item of cartItems) {
         await tx.medicines.update({
           where: { id: item.medicineId },
