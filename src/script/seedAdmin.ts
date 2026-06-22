@@ -20,17 +20,16 @@ async function seedAdmin() {
       throw new Error("User Already Exists");
     }
     const signUpAdmin = await fetch(
-      "http://localhost:5000/api/auth/sign-up/email",
+      "https://medi-store-server-seven.vercel.app/api/auth/sign-up/email",
       {
         method: "POST",
         headers: {
           "content-Type": "application/json",
-          Origin: "http://localhost:3000",
+          Origin: "https://medistoreup.vercel.app",
         },
         body: JSON.stringify(adminData),
       },
     );
-
   } catch (error) {
     console.error(error);
   }
