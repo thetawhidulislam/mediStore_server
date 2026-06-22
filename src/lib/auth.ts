@@ -57,6 +57,7 @@ export const auth = betterAuth({
       return session;
     },
   },
+
   session: {
     cookieCache: {
       enabled: true,
@@ -66,19 +67,9 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: "better-auth",
     useSecureCookies: process.env.NODE_ENV === "production",
-    disableCSRFCheck: true,
     crossSubDomainCookies: {
       enabled: false,
     },
-    
-    cookies: {
-      sessionToken: {
-        attributes: {
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-          secure: process.env.NODE_ENV === "production",
-          httpOnly: true,
-        },
-      },
-    },
+    disableCSRFCheck: true, // Allow requests without Origin header (Postman, mobile apps, etc.)
   },
 });
