@@ -113,8 +113,8 @@ const createOrder = async (
             orderId: order.id,
             paymentId: payment.id,
           },
-          success_url: `${process.env.FRONTEND_URL}/payment/success?orderId=${order.id}`,
-          cancel_url: `${process.env.FRONTEND_URL}/payment/cancel?orderId=${order.id}`,
+          success_url: `${process.env.FRONTEND_URL}/customer-dashboard/order/${order.id}`,
+          cancel_url: `${process.env.FRONTEND_URL}/`,
         });
 
         paymentUrl = session.url;
