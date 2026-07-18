@@ -12,6 +12,7 @@ import { orderRouter } from "./modules/order/order.route";
 import errorHandler from "./middlewere/globalErrorHandler";
 import { UserRouter } from "./modules/user/user.route";
 import { PaymentController } from "./modules/payment/payment.controller";
+import { analyticsRouter } from "./modules/analytics/analytics.route";
 const allowedOrigins = [
   process.env.APP_URL || "http://localhost:3000",
   process.env.FRONTEND_URL, // Production frontend URL
@@ -60,6 +61,8 @@ app.use("/review", ReviewRouter);
 app.use("/cart", CartRouter);
 app.use("/cartItem", CartItemRouter);
 app.use("/api/orders", orderRouter);
+app.use("/api/analytics", analyticsRouter);
+
 app.get("/", (req, res) => {
   res.send("hello world");
 });

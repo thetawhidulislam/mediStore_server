@@ -257,58 +257,53 @@ const updateOrderStatus = async (
   userRoles: string,
   newStatus: OrderStatus,
 ) => {
-  const order = await prisma.orders.findUnique({
-    where: { id: orderId },
-  });
+  // safety check: newStatus valid enum value kina
+  if (!Object.values(OrderStatus).includes(newStatus)) {
+    throw new Error("Invalid status value");
+  }
 
+  const order = await prisma.orders.findUnique({ where: { id: orderId } });
   if (!order) throw new Error("Order not found");
 
-  // CUSTOMER (only cancel)
+  // CUSTOMER — sudhu nijer order cancel korte parbe
   if (userRoles.includes(USERROLE.CUSTOMER)) {
     if (newStatus !== OrderStatus.CANCEL) {
       throw new Error("Customer can only cancel order");
     }
-
-    if (order.customerId !== userId) {
-      throw new Error("Not authorized");
-    }
+    if (order.customerId !== userId) throw new Error("Not authorized");
 
     return prisma.orders.update({
       where: { id: orderId },
-      data: {
-        paymentStatus: PaymentStatus.UNPAID,
-        updatedAt: new Date(),
-      },
+      data: { status: OrderStatus.CANCEL, updatedAt: new Date() }, // ✅ status field e likhcho
     });
   }
 
-  // SELLER (update status)
+  // ADMIN — full control (age eta chilo-i na!)
+  if (userRoles.includes(USERROLE.ADMIN)) {
+    return prisma.orders.update({
+      where: { id: orderId },
+      data: { status: newStatus, updatedAt: new Date() }, // ✅ admin je status pathay, sheita e set hoy
+    });
+  }
+
+  // SELLER — sudhu nijer medicine-er order status update korte parbe, cancel korte parbe na
   if (userRoles.includes(USERROLE.SELLER)) {
     const sellerItems = await prisma.orderItem.findMany({
-      where: {
-        orderId,
-        medicines: {
-          sellerId: userId,
-        },
-      },
+      where: { orderId, medicines: { sellerId: userId } },
     });
-
-    if (!sellerItems.length) {
-      throw new Error("Not authorized");
+    if (!sellerItems.length) throw new Error("Not authorized");
+    if (newStatus === OrderStatus.CANCEL) {
+      throw new Error("Sellers cannot cancel an order");
     }
 
     return prisma.orders.update({
       where: { id: orderId },
-      data: {
-        paymentStatus: PaymentStatus.UNPAID,
-        updatedAt: new Date(),
-      },
+      data: { status: newStatus, updatedAt: new Date() },
     });
   }
 
   throw new Error("Not authorized");
 };
-
 export const orderService = {
   createOrder,
   getAllOrders,

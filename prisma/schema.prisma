@@ -54,6 +54,7 @@ model Orders {
   customerId      String
   totalPrice      Float
   paymentStatus   PaymentStatus @default(UNPAID)
+  status          OrderStatus   @default(PENDING)
   paymentGateway  String?
   shippingAddress String?
   orderItems      OrderItem[]

@@ -65,34 +65,25 @@ export const updateOrderStatus = async (
   try {
     const { orderId } = req.params;
     const user = req.user;
-    const newStatus = req.body.status;
+    // "status" (notun, correct key) OR "paymentStatus" (purono client backward-compat)
+    const newStatus = req.body.status ?? req.body.paymentStatus;
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        details: "Unauthorized",
-      });
+      return res.status(401).json({ success: false, details: "Unauthorized" });
     }
 
     const updatedOrder = await orderService.updateOrderStatus(
       orderId as string,
       user.id as string,
-      user.role as string,
+      user.role as USERROLE,
       newStatus,
     );
-
-    res.status(200).json({
-      success: true,
-      result: updatedOrder,
-    });
-  } catch (error: any) {
-    res.status(403).json({
-      success: false,
-      details: error.message || "Something went wrong",
-    });
+    res.status(200).json({ success: true, result: updatedOrder });
+  } catch (error: unknown) {
+    const details = error instanceof Error ? error.message : String(error);
+    res.status(403).json({ success: false, details });
   }
 };
-
 
 export const orderController = {
   createOrder,
