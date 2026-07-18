@@ -12,7 +12,7 @@ const getDashboardStats = async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      details: error instanceof Error ? error.message : "Something went wrong",
+      details: error instanceof Error ? error.message : "Something went wrongs",
     });
   }
 };
